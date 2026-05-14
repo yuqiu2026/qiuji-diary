@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#5B8DEF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="秋记" />
+  <meta name="description" content="记录每一天的心情与故事 — 私密日记本" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>秋记 · Lite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 登录屏 -->
+  <div class="login-screen" id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <i data-lucide="lock-keyhole"></i>
+      </div>
+      <h1 class="login-title">秋记 · Lite</h1>
+      <p class="login-subtitle">记录每一天的心情与故事</p>
+      <div class="login-form">
+        <input
+          type="password"
+          class="login-input"
+          id="login-password"
+          placeholder="请输入密码"
+          onkeydown="if(event.key==='Enter')App.handleLogin()"
+          autofocus
+        />
+        <button class="login-btn" onclick="App.handleLogin()">
+          <i data-lucide="log-in"></i> 登录
+        </button>
+      </div>
+      <a class="login-forgot" onclick="App.showResetConfirm()">忘记密码？</a>
+    </div>
+  </div>
+
+  <!-- 主内容（登录前隐藏） -->
+  <div class="app-container hidden" id="app-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-glitch">秋记 · Lite</div>
+      <div class="logo-sub">记录每一天的心情与故事</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" id="btn-new" onclick="App.showNew()">
+        <span class="nav-icon"><i data-lucide="plus"></i></span> 新建日记
+      </button>
+      <button class="nav-btn" id="btn-list" onclick="App.showList()">
+        <span class="nav-icon"><i data-lucide="notebook-pen"></i></span> 所有日记
+      </button>
+      <button class="nav-btn" id="btn-search" onclick="App.showSearch()">
+        <span class="nav-icon"><i data-lucide="search"></i></span> 搜索
+      </button>
+      <button class="nav-btn" id="btn-report" onclick="App.showReport()">
+        <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span> 综合分析
+      </button>
+    </nav>
+
+    <div class="sidebar-stats" id="stats">
+      <div class="stat-item">
+        <span class="stat-label">日记</span>
+        <span class="stat-value" id="stat-count">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">字数</span>
+        <span class="stat-value" id="stat-words">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">AI</span>
+        <span class="stat-value" id="stat-ai">0</span>
+      </div>
+    </div>
+
+    <div class="sidebar-export">
+      <div class="export-title">导出 / 导入</div>
+      <button class="export-btn" onclick="App.exportJSON()"><i data-lucide="file-json"></i> 导出 JSON</button>
+      <button class="export-btn" onclick="App.exportMarkdown()"><i data-lucide="file-text"></i> 导出 Markdown</button>
+      <button class="export-btn" onclick="App.exportHTMLReport()"><i data-lucide="file-code-2"></i> 导出完整报告</button>
+      <button class="export-btn import-btn" onclick="App.triggerImport()"><i data-lucide="upload"></i> 导入 JSON</button>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="App.importJSON(this)" />
+    </div>
+
+    <div class="sidebar-bottom">
+      <button class="nav-btn" onclick="App.openSettings()">
+        <span class="nav-icon"><i data-lucide="settings"></i></span> AI 设置
+      </button>
+    </div>
+  </aside>
+
+  <!-- 侧边栏遮罩 -->
+  <div class="sidebar-overlay" onclick="App.toggleSidebar()"></div>
+
+  <!-- Main content -->
+  <main class="main" id="main">
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="menu-toggle" onclick="App.toggleSidebar()" aria-label="菜单"><i data-lucide="menu"></i></button>
+      <div class="topbar-date" id="topbar-date"></div>
+      <div class="topbar-status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">检测中...</span>
+      </div>
+    </header>
+
+    <!-- View: New / Edit -->
+    <section class="view" id="view-editor">
+      <div class="editor-header">
+        <input
+          type="text"
+          class="entry-title-input"
+          id="entry-title"
+          placeholder="给今天起个标题..."
+          maxlength="100"
+        />
+        <div class="editor-meta">
+          <span class="meta-date" id="editor-date"></span>
+          <span class="mood-selector" id="mood-selector">
+            <span class="mood-label">心情</span>
+            <button class="mood-btn active" data-mood="😶" onclick="App.setMood(this)">😶</button>
+            <button class="mood-btn" data-mood="😊" onclick="App.setMood(this)">😊</button>
+            <button class="mood-btn" data-mood="😢" onclick="App.setMood(this)">😢</button>
+            <button class="mood-btn" data-mood="😡" onclick="App.setMood(this)">😡</button>
+            <button class="mood-btn" data-mood="🤔" onclick="App.setMood(this)">🤔</button>
+            <button class="mood-btn" data-mood="⚡" onclick="App.setMood(this)">⚡</button>
+          </span>
+          <span class="word-count" id="word-count">0 字</span>
+        </div>
+      </div>
+
+      <!-- 日记内容输入 -->
+      <textarea
+        class="diary-textarea"
+        id="entry-content"
+        placeholder="写点什么吧...&#10;&#10;记录今天发生了什么、你的心情、灵感想法、感恩的事..."
+        rows="12"
+        oninput="App.onContentInput()"
+      ></textarea>
+
+      <!-- 语音输入 -->
+      <div class="voice-input-area">
+        <button class="voice-btn" id="voice-btn" onclick="VoiceInput.toggle()" title="语音输入">
+          <span class="voice-icon"><i data-lucide="mic"></i></span>
+        </button>
+        <span class="voice-hint" id="voice-hint">点击开始录音，自动转为文字</span>
+      </div>
+
+      <!-- AI Analysis Panel -->
+      <div class="ai-panel hidden" id="ai-panel-editor">
+        <div class="ai-panel-header">
+          <span class="ai-panel-icon"><i data-lucide="sparkles"></i></span>
+          <span class="ai-panel-title">AI 分析</span>
+          <button class="ai-panel-close" onclick="App.hideAIPanel('editor')">×</button>
+        </div>
+        <div class="ai-panel-body" id="ai-result-editor"></div>
+      </div>
+
+      <div class="editor-tags">
+        <span class="tags-label">标签</span>
+        <div class="tags-container" id="tags-container"></div>
+        <input
+          type="text"
+          class="tag-input"
+          id="tag-input"
+          placeholder="添加标签，回车确认"
+          onkeydown="App.handleTagInput(event)"
+        />
+      </div>
+      <div class="editor-actions">
+        <button class="action-btn primary" onclick="App.saveEntry()">
+          <i data-lucide="save"></i> 保存日记
+        </button>
+        <button class="action-btn ai-btn" onclick="App.analyzeEntry()" id="btn-analyze">
+          <i data-lucide="sparkles"></i> AI 分析
+        </button>
+        <button class="action-btn secondary" onclick="App.cancelEdit()" id="btn-cancel" style="display:none">
+          <i data-lucide="x"></i> 取消
+        </button>
+        <button class="action-btn danger" onclick="App.deleteEntry()" id="btn-delete" style="display:none">
+          <i data-lucide="trash-2"></i> 删除
+        </button>
+      </div>
+    </section>
+
+    <!-- View: List -->
+    <section class="view hidden" id="view-list">
+      <div class="view-header">
+        <h2 class="view-title">所有日记</h2>
+        <div class="list-filter">
+          <label class="batch-toggle" id="batch-toggle-label">
+            <input type="checkbox" id="batch-mode-toggle" onchange="App.toggleBatchMode()" />
+            <span class="batch-toggle-slider"></span>
+            <span style="font-size:12px;color:var(--text-secondary);margin-left:4px">批量选择</span>
+          </label>
+          <select class="filter-select" onchange="App.filterByMood(this.value)">
+            <option value="">全部心情</option>
+            <option value="😶">😶 平静</option>
+            <option value="😊">😊 开心</option>
+            <option value="😢">😢 悲伤</option>
+            <option value="😡">😡 愤怒</option>
+            <option value="🤔">🤔 思考</option>
+            <option value="⚡">⚡ 亢奋</option>
+          </select>
+          <select class="filter-select" onchange="App.sortEntries(this.value)">
+            <option value="desc">最新优先</option>
+            <option value="asc">最早优先</option>
+          </select>
+        </div>
+      </div>
+      <!-- 批量操作栏 -->
+      <div class="batch-actions hidden" id="batch-actions">
+        <span class="batch-info" id="batch-info">已选择 0 篇</span>
+        <button class="action-btn secondary" onclick="App.batchSelectAll()" style="padding:6px 12px;font-size:12px">
+          <i data-lucide="check-square"></i> 全选
+        </button>
+        <button class="action-btn danger" onclick="App.batchDelete()" style="padding:6px 12px;font-size:12px">
+          <i data-lucide="trash-2"></i> 批量删除
+        </button>
+        <button class="action-btn secondary" onclick="App.batchExport()" style="padding:6px 12px;font-size:12px">
+          <i data-lucide="download"></i> 批量导出
+        </button>
+      </div>
+      <div class="entries-grid" id="entries-grid">
+        <div class="empty-state">
+          <div class="empty-icon"><i data-lucide="notebook-pen"></i></div>
+          <p>暂无日记记录</p>
+          <p>点击「新建日记」开始记录吧</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Search -->
+    <section class="view hidden" id="view-search">
+      <div class="view-header">
+        <h2 class="view-title">搜索</h2>
+      </div>
+      <div class="search-box-container">
+        <span class="search-icon"><i data-lucide="search"></i></span>
+        <input
+          type="text"
+          class="search-input"
+          id="search-input"
+          placeholder="搜索标题、内容、标签..."
+          oninput="App.doSearch(this.value)"
+        />
+      </div>
+      <div class="entries-grid" id="search-results"></div>
+    </section>
+
+    <!-- View: Summary Analysis -->
+    <section class="view hidden" id="view-report">
+      <div class="view-header">
+        <h2 class="view-title">综合分析</h2>
+        <div class="list-filter">
+          <select class="filter-select" id="report-period" onchange="App.onReportPeriodChange()">
+            <option value="week">本周</option>
+            <option value="month">本月</option>
+            <option value="year">本年</option>
+            <option value="all">全部</option>
+            <option value="custom">自定义范围</option>
+          </select>
+          <div class="custom-date-range hidden" id="custom-date-range">
+            <input type="date" class="setting-input" id="report-date-from" style="padding:5px 8px;font-size:11px" />
+            <span style="color:var(--text-hint);font-size:11px">至</span>
+            <input type="date" class="setting-input" id="report-date-to" style="padding:5px 8px;font-size:11px" />
+            <button class="action-btn primary" onclick="App.applyCustomDateRange()" style="padding:5px 10px;font-size:11px">应用</button>
+          </div>
+          <button class="action-btn ai-btn" onclick="App.generateSummaryReport()" id="btn-summary-ai">
+            <i data-lucide="sparkles"></i> AI 综合分析
+          </button>
+        </div>
+      </div>
+      <div class="report-container" id="report-container">
+        <div class="report-section">
+          <h3 class="report-section-title">心情时间线（近 7 天）</h3>
+          <div class="mood-timeline" id="mood-timeline"></div>
+        </div>
+        <div class="report-section">
+          <h3 class="report-section-title">数据概览</h3>
+          <div class="report-stats" id="report-stats"></div>
+        </div>
+        <div class="report-section">
+          <h3 class="report-section-title">已分析日记 AI 结果汇总</h3>
+          <div class="analysis-summary" id="analysis-summary"></div>
+        </div>
+        <div class="report-section">
+          <h3 class="report-section-title">AI 综合分析报告</h3>
+          <div class="report-ai-result" id="report-ai-result">
+            <div class="empty-state" style="padding:30px">
+              <p>选择时间范围后点击「AI 综合分析」获取智能总结</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 底部导航栏（移动端） -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bottom-nav-item active" id="nav-new" onclick="App.showNew()">
+      <span class="bottom-nav-icon"><i data-lucide="plus"></i></span>
+      <span class="bottom-nav-label">新建</span>
+    </button>
+    <button class="bottom-nav-item" id="nav-list" onclick="App.showList()">
+      <span class="bottom-nav-icon"><i data-lucide="notebook-pen"></i></span>
+      <span class="bottom-nav-label">日记</span>
+    </button>
+    <button class="bottom-nav-item" id="nav-search" onclick="App.showSearch()">
+      <span class="bottom-nav-icon"><i data-lucide="search"></i></span>
+      <span class="bottom-nav-label">搜索</span>
+    </button>
+    <button class="bottom-nav-item" id="nav-report" onclick="App.showReport()">
+      <span class="bottom-nav-icon"><i data-lucide="bar-chart-3"></i></span>
+      <span class="bottom-nav-label">分析</span>
+    </button>
+  </nav>
+
+  </div>
+  <!-- end app-container -->
+
+  <!-- Toast notification -->
+  <div class="toast hidden" id="toast"></div>
+
+  <!-- Modal confirm -->
+  <div class="modal-overlay hidden" id="modal">
+    <div class="modal-box">
+      <p class="modal-msg" id="modal-msg"></p>
+      <div class="modal-actions">
+        <button class="action-btn danger" id="modal-confirm">确认删除</button>
+        <button class="action-btn secondary" onclick="App.closeModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay hidden" id="settings-modal">
+    <div class="modal-box settings-box">
+      <div class="settings-header">
+        <span class="ai-panel-icon"><i data-lucide="settings"></i></span>
+        <span class="ai-panel-title">AI 设置</span>
+        <button class="ai-panel-close" onclick="App.closeSettings()">×</button>
+      </div>
+      <div class="settings-body">
+        <!-- 免费模式开关 -->
+        <div class="setting-group" style="padding:12px 14px;background:var(--green-light);border:1px solid var(--green-border);border-radius:var(--radius-md)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div>
+              <div style="font-size:13px;color:var(--green);font-weight:600;margin-bottom:4px">FREE MODE — 免费模式</div>
+              <div style="font-size:12px;color:var(--text-secondary)">无需 API Key，通过 DeepSeek 网页版免费使用 AI 分析</div>
+            </div>
+            <label class="free-toggle" id="free-toggle-label">
+              <input type="checkbox" id="setting-free-mode" onchange="App.onFreeModeToggle()" />
+              <span class="free-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div id="api-settings-section">
+        <div class="setting-group">
+          <label class="setting-label">API 服务商</label>
+          <select class="setting-select" id="setting-provider" onchange="App.onProviderChange()">
+            <option value="deepseek">DeepSeek（推荐）</option>
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="custom">自定义接口</option>
+          </select>
+        </div>
+        <div class="setting-group" id="group-baseurl">
+          <label class="setting-label">API 地址</label>
+          <input type="text" class="setting-input" id="setting-baseurl" placeholder="https://api.deepseek.com/v1" />
+          <span class="setting-hint" id="hint-baseurl">DeepSeek 默认地址，一般无需修改</span>
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">API 密钥</label>
+          <input type="password" class="setting-input" id="setting-apikey" placeholder="sk-..." />
+          <span class="setting-hint">密钥仅保存在本地浏览器，不会上传。获取地址：<a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a></span>
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">模型</label>
+          <select class="setting-select" id="setting-model-select" onchange="App.onModelSelectChange()">
+            <option value="deepseek-chat">deepseek-chat（推荐）</option>
+            <option value="deepseek-reasoner">deepseek-reasoner（深度思考）</option>
+            <option value="custom">自定义模型...</option>
+          </select>
+          <input type="text" class="setting-input hidden" id="setting-model" placeholder="输入自定义模型名称" />
+          <span class="setting-hint">deepseek-chat 速度快价格低，deepseek-reasoner 分析更深但较慢</span>
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">分析风格</label>
+          <select class="setting-select" id="setting-prompt-style">
+            <option value="warm">温暖陪伴</option>
+            <option value="analytical">理性分析</option>
+            <option value="cyberpunk">赛博朋克风格</option>
+          </select>
+        </div>
+        </div>
+        <div class="settings-actions">
+          <button class="action-btn primary" onclick="App.saveSettings()">保存设置</button>
+          <button class="action-btn secondary" onclick="App.testAI()">测试连接</button>
+          <button class="action-btn secondary" onclick="App.closeSettings();App.openWizard()" style="font-size:11px">新手引导</button>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-actions">
+          <button class="action-btn secondary" onclick="App.openChangePassword()"><i data-lucide="key-round"></i> 修改密码</button>
+          <button class="action-btn secondary" onclick="App.closeSettings();App.openManual()"><i data-lucide="book-open"></i> 使用手册</button>
+          <button class="action-btn danger" onclick="App.closeSettings();App.showResetConfirm()"><i data-lucide="rotate-ccw"></i> 重置数据</button>
+        </div>
+        <div class="settings-version" id="settings-version" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-hint)">
+          版本加载中...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Setup Wizard Modal -->
+  <div class="modal-overlay hidden" id="wizard-modal">
+    <div class="modal-box wizard-box">
+      <div class="wizard-header">
+        <div class="wizard-icon"><i data-lucide="sparkles"></i></div>
+        <div class="wizard-title">AI 连接向导</div>
+        <div class="wizard-subtitle" id="wizard-subtitle">3 步完成 AI 配置</div>
+        <button class="ai-panel-close" onclick="App.closeWizard()" style="position:absolute;top:14px;right:14px">×</button>
+      </div>
+
+      <div class="wizard-progress">
+        <div class="wizard-progress-bar" id="wizard-progress-bar"></div>
+      </div>
+
+      <div class="wizard-step" id="wizard-step-1">
+        <div class="wizard-step-num">第 01 步</div>
+        <div class="wizard-step-title">注册 DeepSeek 账号</div>
+        <div class="wizard-step-body">
+          <div class="wizard-illustration">
+            <div class="wizard-illust-icon">🌐</div>
+            <div class="wizard-illust-text">访问 DeepSeek 开放平台</div>
+          </div>
+          <div class="wizard-desc">
+            DeepSeek 提供低成本的 AI 接口，每百万 token 约 ¥1-2，少量使用几乎免费。<br/>
+            你需要一个手机号注册账号。
+          </div>
+          <div class="wizard-action-box">
+            <a href="https://platform.deepseek.com" target="_blank" class="action-btn primary wizard-action-btn">
+              <i data-lucide="external-link"></i> 打开 DeepSeek 平台
+            </a>
+            <div class="wizard-hint">点击后在新窗口打开注册页面，注册完成后回来继续</div>
+            <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)">
+              <div style="font-size:11px;color:var(--text-hint);margin-bottom:8px">不想注册 API Key？</div>
+              <button class="action-btn secondary wizard-action-btn" onclick="App.closeWizard();App.enableFreeMode()" style="border-color:var(--green);color:var(--green)">
+                使用免费模式
+              </button>
+              <div class="wizard-hint">通过 DeepSeek 网页版免费使用 AI，无需注册 API</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wizard-step hidden" id="wizard-step-2">
+        <div class="wizard-step-num">第 02 步</div>
+        <div class="wizard-step-title">获取 API Key</div>
+        <div class="wizard-step-body">
+          <div class="wizard-illustration">
+            <div class="wizard-illust-icon">🔑</div>
+            <div class="wizard-illust-text">创建你的专属密钥</div>
+          </div>
+          <div class="wizard-desc">
+            登录后进入「API Keys」页面，点击「创建 API Key」，复制生成的密钥。<br/>
+            密钥格式通常以 <span style="color:var(--accent)">sk-</span> 开头。
+          </div>
+          <div class="wizard-guide-box">
+            <div class="wizard-guide-item">
+              <span class="wizard-guide-num">1</span>
+              <span>登录后点击左侧菜单「API Keys」</span>
+            </div>
+            <div class="wizard-guide-item">
+              <span class="wizard-guide-num">2</span>
+              <span>点击「创建 API Key」按钮</span>
+            </div>
+            <div class="wizard-guide-item">
+              <span class="wizard-guide-num">3</span>
+              <span>给密钥取个名字（如「秋记」），点击确定</span>
+            </div>
+            <div class="wizard-guide-item">
+              <span class="wizard-guide-num">4</span>
+              <span><span style="color:var(--orange)">复制密钥</span>（只显示一次，务必保存好！）</span>
+            </div>
+          </div>
+          <div class="wizard-action-box">
+            <a href="https://platform.deepseek.com/api_keys" target="_blank" class="action-btn ai-btn wizard-action-btn">
+              <i data-lucide="external-link"></i> 打开 API Keys 页面
+            </a>
+            <div class="wizard-hint">复制好 Key 后回来，点击「下一步」</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wizard-step hidden" id="wizard-step-3">
+        <div class="wizard-step-num">第 03 步</div>
+        <div class="wizard-step-title">配置并测试</div>
+        <div class="wizard-step-body">
+          <div class="wizard-illustration">
+            <div class="wizard-illust-icon">⚙</div>
+            <div class="wizard-illust-text">粘贴 Key，一键连接</div>
+          </div>
+          <div class="wizard-desc">将刚才复制的 API Key 粘贴到下方，点击测试连接。</div>
+          <div class="setting-group" style="margin-top:16px">
+            <label class="setting-label">粘贴你的 API Key</label>
+            <input type="password" class="setting-input" id="wizard-apikey" placeholder="sk-xxxxxxxxxxxxxxxx" style="font-size:14px;padding:12px 14px" />
+            <span class="wizard-hint" style="margin-top:4px">🔒 密钥仅存储在你的浏览器本地，绝不会上传到任何服务器</span>
+          </div>
+          <div class="wizard-result" id="wizard-result"></div>
+          <div class="wizard-action-box" style="margin-top:16px">
+            <button class="action-btn primary wizard-action-btn" onclick="App.wizardTestKey()" id="wizard-test-btn">
+              <i data-lucide="zap"></i> 测试连接
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wizard-nav">
+        <button class="action-btn secondary wizard-nav-btn" onclick="App.wizardPrev()" id="wizard-prev" style="visibility:hidden">
+          ← 上一步
+        </button>
+        <div class="wizard-dots" id="wizard-dots">
+          <span class="wizard-dot active"></span>
+          <span class="wizard-dot"></span>
+          <span class="wizard-dot"></span>
+        </div>
+        <button class="action-btn primary wizard-nav-btn" onclick="App.wizardNext()" id="wizard-next">
+          下一步 →
+        </button>
+        <button class="action-btn primary wizard-nav-btn hidden" onclick="App.wizardFinish()" id="wizard-finish" style="background:var(--green);border-color:var(--green);color:#fff">
+          ✓ 完成配置
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改密码弹窗 -->
+  <div class="modal-overlay hidden" id="change-password-modal">
+    <div class="modal-box settings-box" style="max-width:380px">
+      <div class="settings-header">
+        <span class="ai-panel-icon"><i data-lucide="key-round"></i></span>
+        <span class="ai-panel-title">修改密码</span>
+        <button class="ai-panel-close" onclick="App.closeChangePassword()">×</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-group">
+          <label class="setting-label">当前密码</label>
+          <input type="password" class="setting-input" id="change-old-pwd" placeholder="输入当前密码" />
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">新密码</label>
+          <input type="password" class="setting-input" id="change-new-pwd" placeholder="输入新密码（至少3位）" />
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">确认新密码</label>
+          <input type="password" class="setting-input" id="change-confirm-pwd" placeholder="再次输入新密码" />
+        </div>
+        <div class="settings-actions">
+          <button class="action-btn primary" onclick="App.handleChangePassword()">确认修改</button>
+          <button class="action-btn secondary" onclick="App.closeChangePassword()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 使用手册弹窗 -->
+  <div class="modal-overlay hidden" id="manual-modal">
+    <div class="modal-box manual-box">
+      <div class="settings-header">
+        <span class="ai-panel-icon"><i data-lucide="book-open"></i></span>
+        <span class="ai-panel-title">使用手册</span>
+        <button class="ai-panel-close" onclick="App.closeManual()">×</button>
+      </div>
+      <div class="manual-body">
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="rocket"></i> 快速开始</div>
+          <ol class="manual-list">
+            <li>首次打开输入默认密码 <code>admin</code> 登录</li>
+            <li>登录后点击「新建日记」开始记录</li>
+            <li>填写标题，在模板板块中记录今天的经历、心情、灵感等</li>
+            <li>点击「保存日记」完成记录</li>
+            <li>建议首次登录后在设置中修改密码</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="layout-template"></i> 写日记</div>
+          <ol class="manual-list">
+            <li>在输入框中自由书写，记录今天发生的事、心情、灵感等</li>
+            <li>选择表情标记今天的心情</li>
+            <li>点击麦克风按钮可以语音输入，自动转为文字</li>
+            <li>添加标签方便分类和搜索</li>
+            <li>写完后点击「保存日记」完成记录</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="sparkles"></i> AI 分析</div>
+          <ol class="manual-list">
+            <li>先在「AI 设置」中配置 DeepSeek API Key</li>
+            <li>也可以开启「免费模式」，无需 API Key</li>
+            <li>写完日记后点击「AI 分析」按钮</li>
+            <li>AI 会分析你的情绪、主题，给出反思和建议</li>
+            <li>分析结果自动保存，重新分析会覆盖旧结果</li>
+            <li>支持三种风格：温暖陪伴、理性分析、赛博朋克</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="bar-chart-3"></i> 综合分析</div>
+          <ol class="manual-list">
+            <li>点击侧边栏「综合分析」查看数据概览</li>
+            <li>支持按时间范围筛选：本周/本月/本年/全部/自定义</li>
+            <li>心情时间线直观展示情绪变化趋势</li>
+            <li>点击「AI 综合分析」获取深度总结报告</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="search"></i> 搜索、管理与批量操作</div>
+          <ol class="manual-list">
+            <li>「所有日记」页面可按心情筛选、按时间排序</li>
+            <li>开启「批量选择」可以全选、批量删除、批量导出</li>
+            <li>鼠标悬停日记卡片右下角，出现删除和导出按钮</li>
+            <li>「搜索」支持标题、内容、标签全文搜索</li>
+            <li>点击日记卡片可以编辑已有日记</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="download"></i> 导入导出</div>
+          <ol class="manual-list">
+            <li><strong>导出 JSON</strong> — 完整备份所有日记（含 AI 分析）</li>
+            <li><strong>导出 Markdown</strong> — 纯文本格式，方便阅读</li>
+            <li><strong>导出完整报告</strong> — HTML 文件，包含统计和 AI 分析</li>
+            <li><strong>导入 JSON</strong> — 从备份恢复数据</li>
+            <li>建议定期导出备份，防止数据丢失</li>
+          </ol>
+        </div>
+
+          <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="smartphone"></i> 移动端使用</div>
+          <ol class="manual-list">
+            <li>在手机浏览器中打开即可使用</li>
+            <li>底部有快捷导航栏（新建/日记/搜索/分析）</li>
+            <li>点击麦克风按钮开始语音输入，自动将语音转为文字</li>
+            <li>再次点击麦克风按钮停止录音</li>
+            <li>建议「添加到主屏幕」获得更好的使用体验</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="shield-check"></i> 隐私与安全</div>
+          <ol class="manual-list">
+            <li>所有数据存储在你的浏览器本地，不会上传到任何服务器</li>
+            <li>API 密钥仅保存在本地浏览器中</li>
+            <li>建议定期修改登录密码保护隐私</li>
+            <li>将文件夹发给他人时，对方获得的是全新空数据库</li>
+          </ol>
+        </div>
+
+        <div class="manual-section">
+          <div class="manual-section-title"><i data-lucide="keyboard"></i> 快捷键</div>
+          <div class="manual-shortcuts">
+            <span class="shortcut-item"><kbd>Ctrl</kbd>+<kbd>S</kbd> 保存日记</span>
+            <span class="shortcut-item"><kbd>Esc</kbd> 关闭弹窗</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // 初始化 Lucide 图标
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+
+    // 注册 Service Worker（PWA 离线缓存）
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then((reg) => {
+          console.log('[PWA] Service Worker 已注册:', reg.scope);
+        })
+        .catch((err) => {
+          console.warn('[PWA] Service Worker 注册失败:', err);
+        });
+    }
+  </script>
+</body>
+</html>
